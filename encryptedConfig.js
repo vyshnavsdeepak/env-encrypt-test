@@ -4,6 +4,53 @@ const crypto = require('crypto');
 
 const encryptedStringBase = 'base64';
 
+const s = () => {
+  // Generate a random symmetric encryption key
+  const key = crypto.randomBytes(32);
+  // Encrypt a message using the symmetric key
+  const iv = crypto.randomBytes(16); // Generate a random initialization vector
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  let encryptedMessage = cipher.update(message, 'utf8', 'hex');
+  encryptedMessage += cipher.final('hex');
+
+  console.log(`Encrypted message: ${encryptedMessage}`);
+
+  // Decrypt the message using the symmetric key
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  let decryptedMessage = decipher.update(encryptedMessage, 'hex', 'utf8');
+  decryptedMessage += decipher.final('utf8');
+
+  console.log(`Decrypted message: ${decryptedMessage}`);
+}
+
+const getCipher = (key, iv) => {
+  key =  key ?? crypto.randomBytes(32);
+  // Encrypt a message using the symmetric key
+  iv = iv ?? crypto.randomBytes(16); // Generate a random initialization vector
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  return {
+    key,
+    iv,
+    cipher,
+  };
+}
+
+const encryptWithCipher = (cipher, message) => {
+  let encryptedMessage = cipher.update(message, 'utf8', 'hex');
+  encryptedMessage += cipher.final('hex');
+  return encryptedMessage;
+}
+
+const decryptWithCipher = ({ key, iv }, encryptedMessage) => {
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  console.log({
+    encryptedMessage
+  })
+  let decryptedMessage = decipher.update(encryptedMessage, 'hex', 'utf8');
+  decryptedMessage += decipher.final('utf8');
+  return decryptedMessage;
+}
+
 const encryptText = (text, publicKey) => {
   try {
     const encrypted = crypto.publicEncrypt(publicKey, Buffer.from(text)).toString(encryptedStringBase);
@@ -24,9 +71,6 @@ const decryptText = (encryptedText, privateKey) => {
 };
 
 const encryptEnvFile = (envVars, publicKey, privateKey, userPublicKeys) => {
-  console.log({
-    envVars
-  })
   const encryptedVars = {};
   console.log({
     envVars
@@ -36,23 +80,34 @@ const encryptEnvFile = (envVars, publicKey, privateKey, userPublicKeys) => {
   });
 
   // Encrypt private key with user public keys
-  const symKey = crypto.randomBytes(32);
+  const cipher = getCipher();
+  const symKey = cipher.cipher;
 
-  const symKeysEncrypted = [];
-  const encryptedPrivateKey = crypto.privateEncrypt(privateKey, symKey).toString(encryptedStringBase);
+
+  console.log({
+    cipher: cipher
+  });
+  const encryptedPrivateKey = encryptWithCipher(symKey, privateKey);
+
+  const cipherCreateEncrypted = [];
+
+  const cipherCreate = JSON.stringify({
+    key: cipher.key.toString('base64'),
+    iv: cipher.iv.toString('base64'),
+  })
+
   Object.keys(userPublicKeys).forEach((key) => {
-    symKeysEncrypted.push(encryptText(symKey.toString('base64'), userPublicKeys[key]));
+    cipherCreateEncrypted.push(encryptText(cipherCreate, userPublicKeys[key]));
   });
 
   return {
     encryptedPrivateKey,
     encryptedVars,
-    symKeysEncrypted
+    cipherCreateEncrypted
   };
 }
 
 const writeEncrypted = (envVars) => {
-  console.log(envVars);
   fs.writeFileSync(".env.enc", JSON.stringify(envVars, null, 2), 'utf8');
 }
 
@@ -60,29 +115,41 @@ const readEncrypted = () => {
   const envFile = fs.readFileSync('.env.enc');
   const envVars = JSON.parse(envFile);
   return {
-    encryptedPrivateKeys: envVars.encryptedPrivateKeys,
+    cipherCreateEncrypted: envVars.cipherCreateEncrypted,
+    encryptedPrivateKey: envVars.encryptedPrivateKey,
     encryptedVars: envVars.encryptedVars,
   };
 }
 
 const getDecryptedEnvVars = (userKey) => {
   const encrypted = readEncrypted();
-  const ecryptedPrivateKeys = encrypted.encryptedPrivateKeys;
+  const cipherCreateEncrypted = encrypted.cipherCreateEncrypted;
+  const encryptedPrivateKey = encrypted.encryptedPrivateKey;
+
+  console.log({
+    encryptedPrivateKey,
+  });
 
   // Decrypt private key with user private key
-  let privateKey = null;
-  ecryptedPrivateKeys.forEach((key) => {
+  let cipherCreate = null;
+  cipherCreateEncrypted.forEach((key) => {
     try {
-      privateKey = decryptText(key, userKey);
+      cipherCreate = JSON.parse(decryptText(key, userKey));
     } catch (e) {
       console.log(e);
     }
-  });
+  })
 
-  if (!privateKey) {
-    throw new Error('Could not decrypt private key');
+  console.log("SymKey", cipherCreate);
+
+  if (!cipherCreate) {
+    throw new Error('Could not decrypt cypher key');
   }
 
+  const privateKey = decryptWithCipher({
+    key: Buffer.from(cipherCreate.key, 'base64'),
+    iv: Buffer.from(cipherCreate.iv, 'base64'),
+  }, encryptedPrivateKey);
   // const privateKey = Buffer.from(encrypted.privateKey, 'base64');
   const encryptedVars = encrypted.encryptedVars;
   const decryptedVars = {};
