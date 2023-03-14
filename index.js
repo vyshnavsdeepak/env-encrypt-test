@@ -14,12 +14,13 @@ const readPublicKey = (folder) => {
 }
 
 (async () => {
-  // const config = readEnvFile();
+  const config = readEnvFile();
   // const text = "Hello World";
-  // const publicKey1 = readPublicKey('./key1');
+  const publicKey1 = readPublicKey('./key1');
 
-  // const encrypted = encryptEnvFile(config, publicKey1, fs.readFileSync('./key1/privatekey.pem'));
-  // writeEncrypted(encrypted);
+  const encrypted = encryptEnvFile(config, publicKey1,
+    fs.readFileSync('./key1/privatekey.pem'), [readPublicKey('./key2')]);
+  writeEncrypted(encrypted);
 
-  writeDecrypted(getDecryptedEnvVars());
+  // writeDecrypted(getDecryptedEnvVars());
 })();
