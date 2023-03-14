@@ -160,7 +160,7 @@ const getDecryptedEnvVars = (userKey) => {
 }
 
 const writeDecrypted = (envVars) => {
-  fs.writeFileSync(".env-d", JSON.stringify(envVars), 'utf8');
+  fs.writeFileSync(".env-d", JSON.stringify(envVars, null, 2), 'utf8');
 }
 
 

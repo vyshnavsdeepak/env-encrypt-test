@@ -14,13 +14,18 @@ const readPublicKey = (folder) => {
 }
 
 (async () => {
-  const config = readEnvFile();
-  // // const text = "Hello World";
-  // const publicKey1 = readPublicKey('./key1');
+  const config = readEnvFile(); // Read .env file
+  const publicKey1 = readPublicKey('./key1'); // file encryption key
+
+  const private1 = fs.readFileSync('./key1/privatekey.pem'); // file decryption key
+
+  const publicKey2 = readPublicKey('./key2'); // user encryption key
 
   // const encrypted = encryptEnvFile(config, publicKey1,
-  //   fs.readFileSync('./key1/privatekey.pem'), [readPublicKey('./key2')]);
+  //   private1, [publicKey2]);
   // writeEncrypted(encrypted);
+
+  // Uncommnt the above to encrypt the .env file, commnent the below while doing that and vice versa
 
   // Decrypt with key2, key2 is user key
   writeDecrypted(getDecryptedEnvVars(
